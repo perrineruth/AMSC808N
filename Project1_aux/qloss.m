@@ -1,6 +1,6 @@
 %%
 function f = qloss(I,Xtrain,label,w,lam)
-f = sum(log(1 + exp(-myquadratic(Xtrain,label,I,w))))/length(I) + 0.5*lam*w'*w;
+f = sum(log(1 + exp(-myquadratic(Xtrain,label,I,w))))/length(I) + 0.5*lam*(w'*w);
 end
 %%
 function g = qlossgrad(I,Xtrain,label,w,lam)

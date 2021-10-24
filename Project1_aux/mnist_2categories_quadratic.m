@@ -1,17 +1,17 @@
-function mnist_2categories_quadratic(optimizer)
+function mnist_2categories_quadratic(optimizer,nPCA)
 % MNIST_2CATEGORIES_QUADRATIC
 %  Inputs:
-%   - optimizer = 
+%   - optimizer = optimizer for quadratic surface
+%   - nPCA = number of PCA terms to approximate images
 %  Description
 %   - creates a quadratic dividing surface of the
 %     MNIST dataset to distinguish the char 1 from
 %     7.
 
+% close figures & font size
 close all
 fsz = 20;
-%% Pick the number of PCAs for the representation of images
-nPCA = 3;
-%%
+%% load in data
 mdata = load('mnist.mat');
 imgs_train = mdata.imgs_train;
 imgs_test = mdata.imgs_test;
@@ -75,23 +75,27 @@ Xtest = [Xtest1;Xtest2]*U(:,1:nPCA);
 %% category 1 (1): label 1; category 2 (7): label -1
 label = ones(Ntrain,1);
 label(n1train+1:Ntrain) = -1;
-%% dividing hyperplane: w'*x + b
+%% dividing hypersurface: x'*W*x v'*x + b
 dim = nPCA;
-Y = (label*ones(1,dim + 1)).*[Xtrain,ones(size(Xtrain,1),1)]; % Y*w is the test fucntion
+Y = (label*ones(1,dim + 1)).*[Xtrain,ones(size(Xtrain,1),1)]; 
+% Y*w is the test fucntion
 %% optimize w and b using a smooth loss function and SINewton
 lam = 0.001; % Tikhonov regularization parameter
-fun = @(I,w)fun0(I,Y,w,lam);
-gfun = @(I,w)gfun0(I,Y,w,lam);
+fun = @(I,w)qloss(I,Xtrain,label,w,lam);
+gfun = @(I,w)qlossgrad(I,Xtrain,label,w,lam);
 Hvec = @(I,w,v)Hvec0(I,Y,w,v,lam);
-w = ones(dim+1,1);
-% params for SINewton
-frac = 10;
-bsz = ceil(Ntrain/frac); % batch size
-kmax = 1e3*frac; % the max number of iterations
+w = zeros(dim^2+dim+1,1);
+% params for epochs and batchsize
+bsz = 256;
+%frac = 100;
+frac= Ntrain/bsz; % batch size
+kmax = floor(1e3*frac); % the max number of iterations
 tol = 1e-4;
 % call the optimizer
-[w,f,gnorm] = optimizer(fun,gfun,Hvec,Y,w,bsz,kmax,tol);
-wvec = w(1:dim);
+n = size(Y,1);
+[w,f,gnorm] = optimizer(fun,gfun,Hvec,n,w,bsz,kmax,tol);
+W = reshape(w(1:dim^2),[dim,dim]);
+v = reshape(w(dim^2+1:dim^2+dim),[1,dim]);
 b = w(end);
 % plot the objective function
 figure;
@@ -110,12 +114,13 @@ set(gca,'fontsize',fsz,'Yscale','log');
 Ntest = n1test+n2test;
 testlabel = ones(Ntest,1);
 testlabel(n1test+1:Ntest) = -1;
-test = testlabel.*(Xtest*wvec + b);
+test = myquadratic(Xtest,testlabel,1:Ntest,w);
 hits = find(test > 0);
 misses = find(test < 0);
 nhits = length(hits);
 nmisses = length(misses);
-fprintf('n_correct = %d, n_wrong = %d, accuracy %d percent\n',nhits,nmisses,nhits/Ntest);
+fprintf('n_correct = %d, n_wrong = %d, accuracy %d percent\n', ...
+    nhits,nmisses,nhits/Ntest);
 %% plot the dividing surface if nPCA = 3
 if dim == 3
     xmin = min(Xtrain(:,1)); xmax = max(Xtrain(:,1));
@@ -123,10 +128,10 @@ if dim == 3
     zmin = min(Xtrain(:,3)); zmax = max(Xtrain(:,3));
     nn = 50;
     figure(figPCA);
-    [xx,yy,zz] = meshgrid(linspace(xmin,xmax,nn),linspace(ymin,ymax,nn),...
-        linspace(zmin,zmax,nn));
-    plane = w(1)*xx+w(2)*yy+w(3)*zz+w(4);
-    p = patch(isosurface(xx,yy,zz,plane,0));
+    MSGID = 'MATLAB:fplot:NotVectorized';
+    warning('off', MSGID)
+    fimplicit3(@(x,y,z) [x' y' z']*W*[x;y;z]+v*[x;y;z]+b,...
+        [xmin xmax ymin ymax zmin zmax])
     p.FaceColor = 'cyan';
     p.EdgeColor = 'none';
     camlight 
@@ -136,14 +141,34 @@ end
 end
 %%
 %% The objective function
-function f = fun0(I,Y,w,lam) 
-f = sum(log(1 + exp(-Y(I,:)*w)))/length(I) + 0.5*lam*w'*w;
+function f = qloss2(I,Xtrain,label,w,lam)
+f = sum(log(1 + exp(-myquadratic(Xtrain,label,I,w))))/length(I) + 0.5*lam*w'*w;
 end
-%% The gradient of the objective function
-function g = gfun0(I,Y,w,lam) 
-aux = exp(-Y(I,:)*w);
-d1 = size(Y,2);
-g = sum(-Y(I,:).*((aux./(1 + aux))*ones(1,d1)),1)'/length(I) + lam*w;
+%%
+function g = qlossgrad(I,Xtrain,label,w,lam)
+aux = exp(-myquadratic(Xtrain,label,I,w));
+a = -aux./(1+aux);
+X = Xtrain(I,:);
+d = size(X,2);
+d2 = d^2;
+y = label(I);
+ya = y.*a;
+qterm = X'*((ya*ones(1,d)).*X);
+lterm = X'*ya;
+sterm = sum(ya);
+g = [qterm(:);lterm;sterm]/length(I) + lam*w;
+end
+%%
+function q = myquadratic(Xtrain,label,I,w)
+X = Xtrain(I,:);
+d = size(X,2);
+d2 = d^2;
+y = label(I);
+W = reshape(w(1:d2),[d,d]);
+v = w(d2+1:d2+d);
+b = w(end);
+qterm = diag(X*W*X');
+q = y.*qterm + ((y*ones(1,d)).*X)*v + y*b;
 end
 %% The Hessian of the objective function times vector v
 function Hv = Hvec0(I,Y,w,v,lam) % the Hessian of the objective function times vector v

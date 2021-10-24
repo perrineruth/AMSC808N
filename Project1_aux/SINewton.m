@@ -1,11 +1,9 @@
-function [w,f,normgrad] = SINewton(fun,gfun,Hvec,Y,w,bsz,kmax,tol)
+function [w,f,normgrad] = SINewton(fun,gfun,Hvec,n,w,bsz,kmax,tol)
 rho = 0.1;
 gam = 0.9;
 jmax = ceil(log(1e-14)/log(gam)); % max # of iterations in line search
 eta = 0.5;
 CGimax = 10; % max number of CG iterations
-n = size(Y,1);
-[n,~] = size(Y);
 I = 1:n;
 f = zeros(kmax + 1,1);
 f(1) = fun(I,w);

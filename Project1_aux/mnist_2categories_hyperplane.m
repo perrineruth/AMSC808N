@@ -1,4 +1,4 @@
-function mnist_2categories_hyperplane()
+function mnist_2categories_hyperplane(optimizer)
 close all
 fsz = 20;
 %% Pick the number of PCAs for the representation of images
@@ -96,7 +96,8 @@ bsz = ceil(Ntrain/frac); % batch size
 kmax = 1e3*frac; % the max number of iterations
 tol = 1e-4;
 % call the optimizer
-[w,f,gnorm] = SINewton(fun,gfun,Hvec,Y,w,bsz,kmax,tol);
+n = size(Y,1);
+[w,f,gnorm] = optimizer(fun,gfun,Hvec,n,w,bsz,kmax,tol);
 wvec = w(1:dim);
 b = w(end);
 % plot the objective function
