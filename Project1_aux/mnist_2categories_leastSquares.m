@@ -1,4 +1,4 @@
-function mnist_2categories_quadratic(optimizer,nPCA)
+function mnist_2categories_leastSquares(optimizer,nPCA)
 % MNIST_2CATEGORIES_QUADRATIC
 %  Inputs:
 %   - optimizer = optimizer for quadratic surface, either Gauss Newton
@@ -83,10 +83,10 @@ Y = (label*ones(1,dim + 1)).*[Xtrain,ones(size(Xtrain,1),1)];
 %% optimize w and b using a smooth loss function and SINewton
 
 RJ = @(w) Res_and_Jac(Xtrain,label,w);
-w = zeros(dim^2+dim+1,1);
+w = ones(dim^2+dim+1,1);
 % deterministic -> no epochs
 kmax = 5e1; % the max number of iterations
-tol = 1e-6;
+tol = 1e-4; % was about 1e3
 n = size(Y,1);
 [w,f,gnorm] = optimizer(RJ,w,kmax,tol);
 W = reshape(w(1:dim^2),[dim,dim]);

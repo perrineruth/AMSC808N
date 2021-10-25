@@ -15,7 +15,7 @@ for k = 1 : kmax
     
     H = J'*J + eye(length(w))*1e-6;
     g = J'*r;
-    p = -inv(H)*J'*r;
+    p = -H\g;
 
     normgrad(k) = norm(g);
 

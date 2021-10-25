@@ -86,7 +86,7 @@ gfun = @(I,w)qlossgrad(I,Xtrain,label,w,lam);
 Hvec = @(I,w,v)Hvec0(I,Y,w,v,lam);
 w = zeros(dim^2+dim+1,1);
 % params for epochs and batchsize
-bsz = 256;
+bsz = 512;
 %frac = 100;
 frac= Ntrain/bsz; % batch size
 kmax = floor(5e1*frac); % the max number of iterations
