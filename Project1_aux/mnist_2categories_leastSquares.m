@@ -1,7 +1,8 @@
 function mnist_2categories_quadratic(optimizer,nPCA)
 % MNIST_2CATEGORIES_QUADRATIC
 %  Inputs:
-%   - optimizer = optimizer for quadratic surface
+%   - optimizer = optimizer for quadratic surface, either Gauss Newton
+%                   or Levenberg Marquadt
 %   - nPCA = number of PCA terms to approximate images
 %  Description
 %   - creates a quadratic dividing surface of the
@@ -80,20 +81,14 @@ dim = nPCA;
 Y = (label*ones(1,dim + 1)).*[Xtrain,ones(size(Xtrain,1),1)]; 
 % Y*w is the test fucntion
 %% optimize w and b using a smooth loss function and SINewton
-lam = 0.001; % Tikhonov regularization parameter
-fun = @(I,w)qloss(I,Xtrain,label,w,lam);
-gfun = @(I,w)qlossgrad(I,Xtrain,label,w,lam);
-Hvec = @(I,w,v)Hvec0(I,Y,w,v,lam);
+
+RJ = @(w) Res_and_Jac(Xtrain,label,w);
 w = zeros(dim^2+dim+1,1);
-% params for epochs and batchsize
-bsz = 256;
-%frac = 100;
-frac= Ntrain/bsz; % batch size
-kmax = floor(5e1*frac); % the max number of iterations
-tol = 1e-4;
-% call the optimizer
+% deterministic -> no epochs
+kmax = 5e1; % the max number of iterations
+tol = 1e-6;
 n = size(Y,1);
-[w,f,gnorm] = optimizer(fun,gfun,Hvec,n,w,bsz,kmax,tol);
+[w,f,gnorm] = optimizer(RJ,w,kmax,tol);
 W = reshape(w(1:dim^2),[dim,dim]);
 v = reshape(w(dim^2+1:dim^2+dim),[1,dim]);
 b = w(end);
@@ -114,13 +109,14 @@ set(gca,'fontsize',fsz,'Yscale','log');
 Ntest = n1test+n2test;
 testlabel = ones(Ntest,1);
 testlabel(n1test+1:Ntest) = -1;
-test = myquadratic(Xtest,testlabel,1:Ntest,w);
+test = myquadratic(Xtest,testlabel,w);
 hits = find(test > 0);
 misses = find(test < 0);
 nhits = length(hits);
 nmisses = length(misses);
 fprintf('n_correct = %d, n_wrong = %d, accuracy %d percent\n', ...
     nhits,nmisses,nhits/Ntest);
+
 %% plot the dividing surface if nPCA = 3
 if dim == 3
     xmin = min(Xtrain(:,1)); xmax = max(Xtrain(:,1));
@@ -139,42 +135,16 @@ if dim == 3
     alpha(0.3);
 end
 end
-%%
-%% The objective function
-function f = qloss2(I,Xtrain,label,w,lam)
-f = sum(log(1 + exp(-myquadratic(Xtrain,label,I,w))))/length(I) + 0.5*lam*w'*w;
-end
-%%
-function g = qlossgrad(I,Xtrain,label,w,lam)
-aux = exp(-myquadratic(Xtrain,label,I,w));
-a = -aux./(1+aux);
-X = Xtrain(I,:);
+
+%% The quadratic approximation
+function q = myquadratic(X,y,w)
 d = size(X,2);
 d2 = d^2;
-y = label(I);
-ya = y.*a;
-qterm = X'*((ya*ones(1,d)).*X);
-lterm = X'*ya;
-sterm = sum(ya);
-g = [qterm(:);lterm;sterm]/length(I) + lam*w;
-end
-%%
-function q = myquadratic(Xtrain,label,I,w)
-X = Xtrain(I,:);
-d = size(X,2);
-d2 = d^2;
-y = label(I);
 W = reshape(w(1:d2),[d,d]);
 v = w(d2+1:d2+d);
 b = w(end);
 qterm = diag(X*W*X');
 q = y.*qterm + ((y*ones(1,d)).*X)*v + y*b;
-end
-%% The Hessian of the objective function times vector v
-function Hv = Hvec0(I,Y,w,v,lam) % the Hessian of the objective function times vector v
-aux = exp(-Y(I,:)*w);
-d1 = size(Y,2);
-Hv = sum(Y(I,:).*((aux.*(Y(I,:)*v)./((1+aux).^2)).*ones(1,d1)),1)' + lam*v;
 end
 
 

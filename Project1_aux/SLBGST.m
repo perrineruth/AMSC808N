@@ -49,11 +49,12 @@ for k = 1 : kmax
    % end
     normgrad(k) = norm(g);
 
-    
-    [a,j] = linesearch(w,p,g,fun,eta,Ig,jmax);
+    % line-search
+    % use the line searches evaluation of f(k+1)...
+    [a,j,f(k+1)] = linesearch(w,p,g,fun,eta,Ig,jmax);
     if j == jmax 
         p=-g;
-        [a,j] =  linesearch(w,p,g,fun,eta,Ig,jmax);
+        [a,j,f(k+1)] =  linesearch(w,p,g,fun,eta,Ig,jmax);
     end
     w = w + a*p;
 
@@ -72,9 +73,6 @@ for k = 1 : kmax
         wh = w;
         rho(1) = 1/(s(:,1)'*y(:,1));
     end
-
-
-    f(k+1) = fun(Ig,w);
    
     if mod(k,100)==0
         fprintf('k = %d, f = %d, ||g|| = %d\n',k,f(k+1),normgrad(k));
@@ -107,7 +105,7 @@ function p = finddirection(g,s,y,rho,m)
 end
     
 % line search method on a given direction
-function [a,j] = linesearch(x,p,g,func,eta,If,jmax)
+function [a,j,f1] = linesearch(x,p,g,func,eta,If,jmax)
     gam = 0.9;
 
     a = 1;
@@ -116,7 +114,7 @@ function [a,j] = linesearch(x,p,g,func,eta,If,jmax)
     for j = 0:jmax
         xtry = x+a*p;
         f1 = func(If,xtry);
-        if f1 <f0+aux
+        if f1 <f0 + a*aux
             break
         else
             a = a*gam;
