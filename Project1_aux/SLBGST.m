@@ -10,11 +10,10 @@ f(1) = fun(I,w);        % loss initially
 normgrad = zeros(kmax,1); 
 
 % Implimentation parameters for SLBGST
-bszh = bsz*5; % sample size for Hessian sampling
-HM = 10;    % frequency of updating the Hessian inverse
+bszh = bsz*10; % sample size for Hessian sampling
+HM = 20;    % frequency of updating the Hessian inverse
 m = 5;      % number of steps for generating approximation
 HIter = 0;  % number of evaluation of s and y computed
-alpha = @(k) 10/(100+k); % fixed step-size to start
 
 % parameters for evaluating the approx of inverse Hessian
 s = zeros(length(w),m);
@@ -28,7 +27,7 @@ g = gfun(Ig,w);
 gh = gfun(Ih,w);    % stored gradient with larger batch size
 wh = w;             % keeping track of old w values
 
-w = w-alpha(1)*g;
+w = w-.1*g;
 Ih = randperm(n,bszh);
 ghnew = gfun(Ih,w);
 
@@ -38,29 +37,42 @@ HIter = 1;
 gh = ghnew;
 wh = w;
 rho(1) = 1/(s(:,1)'*y(:,1));
-
+jmax=10;
+eta=.5;
 for k = 1 : kmax
     % random batch and gradient
     Ig = randperm(n,bsz);
     g = gfun(Ig,w);         % for measurement but not computation
     p = finddirection(g,s,y,rho,min(HIter,m));
+   % if any(rho(2:5))
+        %fprintf("here")
+   % end
     normgrad(k) = norm(g);
 
-    w = w + alpha(1)*p;
+    
+    [a,j] = linesearch(w,p,g,fun,eta,Ig,jmax);
+    if j == jmax 
+        p=-g;
+        [a,j] =  linesearch(w,p,g,fun,eta,Ig,jmax);
+    end
+    w = w + a*p;
 
     % if we need to update Hessian
-    if mod(k,HM) == 0
+    if mod(k,HM) == 0 || HIter < m
         s = circshift(s,[0,1]);
         y = circshift(y,[0,1]);
-        Ig = randperm(n,bszh);
+        rho = circshift(rho,[0,1]);
+        
+        Ih = randperm(n,bszh);
         ghnew = gfun(Ih,w);
         s(:,1) = w-wh;
         y(:,1) = ghnew-gh;
-        HIter = 1;
+        HIter = HIter+1;
         gh = ghnew;
         wh = w;
         rho(1) = 1/(s(:,1)'*y(:,1));
     end
+
 
     f(k+1) = fun(Ig,w);
    
@@ -85,7 +97,7 @@ function p = finddirection(g,s,y,rho,m)
         a(i) = rho(i)*s(:,i)'*g;
         g = g-a(i)*y(:,i);
     end
-    gam = s(:,1)'*y(:,1)/(y(:,1)'*y(:,1));
+    gam = (s(:,1)'*y(:,1))/(y(:,1)'*y(:,1));
     g = g*gam;
     for i = m:-1:1
         aux = rho(i)*y(:,i)'*g;
@@ -95,4 +107,19 @@ function p = finddirection(g,s,y,rho,m)
 end
     
 % line search method on a given direction
+function [a,j] = linesearch(x,p,g,func,eta,If,jmax)
+    gam = 0.9;
 
+    a = 1;
+    f0 = func(If,x);
+    aux = eta*g'*p;
+    for j = 0:jmax
+        xtry = x+a*p;
+        f1 = func(If,xtry);
+        if f1 <f0+aux
+            break
+        else
+            a = a*gam;
+        end
+    end
+end
