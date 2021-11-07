@@ -5,16 +5,17 @@ function [W,H,F_err] = proj_grad(A,k)
     Pr = @(X) max(X,0); % projection of X to nonegative values
     % initializing to say ones causes an issue of rank deficient
     % W and H matrices in the output (they stay rank 1)
-    W = rand(m,k);
-    H = rand(k,n);
+    a = sum(A,'all')/m/n;
+    W = (rand(m,k)+.5)*sqrt(a/k);
+    H = (rand(k,n)+.5)*sqrt(a/k); 
 
     % use R error for computation and step size
     R = A-W*H;
-    alpha = @(k) 1/(k+10); % this works best with decaying step size
+    alpha = @(k) 50/((k+100)*m*n); % this works best with decaying step size
 
     % initialize loop vals
-    maxIter = 100;  iter = 1;
-    tol = 1e-4;     d = tol+1;
+    maxIter = 1e5;  iter = 1;
+    tol = 1e-5;     d = tol+1;
     while iter < maxIter && d > tol
         % step matrices
         Wnew = Pr(W + alpha(k)*R*H');
@@ -25,7 +26,8 @@ function [W,H,F_err] = proj_grad(A,k)
 
         % loop updates
         iter = iter+1;
-        d = norm(Wnew-W,"fro") + norm(Hnew-H,"fro");
+        % check avg square element change not too small...
+        d = (norm(Wnew-W,"fro") + norm(Hnew-H,"fro"))/sqrt((n+m)*k);
         W = Wnew; H = Hnew;
     end
 
