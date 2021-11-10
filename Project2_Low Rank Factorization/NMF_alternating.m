@@ -1,8 +1,8 @@
 function [X,Y,F_err] = NMF_alternating(A,Ohm,k,lambda)
     %% feed in A matrix and tikhonov lambda
     % default max number of iterations
-    maxIter = 100;
-    tol = 1e-4;
+    maxIter = 1e4;
+    tol = 1e-5;
 
     % projection onto Omega
     P = @(M) M.*Ohm;
@@ -18,8 +18,6 @@ function [X,Y,F_err] = NMF_alternating(A,Ohm,k,lambda)
     iter = 1;
     d = tol+1;
     while iter < maxIter && d > tol
-        Xold = X;
-        Yold = Y;
         % update X matrix
         for i = 1:m
             M = [Y(Ohm(i,:)==1,:);
@@ -36,8 +34,9 @@ function [X,Y,F_err] = NMF_alternating(A,Ohm,k,lambda)
             Y(j,:) = (M\b)';
         end
 
-        d = norm(Xold*Yold'-X*Y','fro');
+        %d = norm(Xold*Yold'-X*Y','fro');
         iter = iter+1;
+        fprintf("Error at step %d: %f\n", iter, norm(P(X*Y')-A,'fro'))
     end 
     
     F_err = norm(P(A-X*Y'),'fro');
