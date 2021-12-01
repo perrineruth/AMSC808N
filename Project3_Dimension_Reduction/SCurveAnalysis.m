@@ -23,6 +23,9 @@ Ypca = Ycentered*U(:,1:expDim); % features
 scatter(Ypca(:,1),Ypca(:,2),sz,c,'filled')
 
 % 2 Isomap
+figure()
+Yiso = isomap(data3,5,2);
+scatter(Yiso(:,1),Yiso(:,2),sz,c,'filled')
 
 % 3 LLE
 figure()
@@ -32,7 +35,8 @@ scatter(Ylle(1,:),Ylle(2,:),sz,c,'filled')
 
 % 4 t-SNE
 figure()
-[Yt_sne, loss] = tsne(data3,'Algorithm','exact','Perplexity',6);
+perp = 10;
+[Yt_sne, loss] = tsne(data3,'Algorithm','exact','Perplexity',15);
 scatter(Yt_sne(:,1),Yt_sne(:,2),sz,c,'filled')
 
 % 5 Diffusion Map
